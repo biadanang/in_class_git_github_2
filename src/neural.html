@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>3D Neural Network</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <script>
+      const canvas = document.getElementById("c");
+      const ctx = canvas.getContext("2d");
+
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const W = canvas.width,
+        H = canvas.height;
+      const CX = W / 2,
+        CY = H / 2;
+
+      const NUM = 150;
+      const CONN_DIST = 100;
+      const SPEED = 0.3;
+      let angle = 0.03;
+
+      const nodes = Array.from({ length: NUM }, () => ({
+        x: (Math.random() - 0.5) * 600,
+        y: (Math.random() - 0.5) * 420,
+        z: (Math.random() - 0.5) * 500,
+        dx: (Math.random() - 0.5) * SPEED,
+        dy: (Math.random() - 0.5) * SPEED,
+        dz: (Math.random() - 0.5) * SPEED,
+      }));
+
+      function project(x, y, z) {
+        const cosA = Math.cos(angle),
+          sinA = Math.sin(angle);
+        const rx = x * cosA - z * sinA;
+        const rz = x * sinA + z * cosA;
+        const fov = 600;
+        const scale = fov / (fov + rz + 300);
+        return { px: CX + rx * scale, py: CY + y * scale, scale };
+      }
+
+      function loop() {
+        ctx.clearRect(0, 0, W, H);
+        angle += 0.003;
+
+        for (const n of nodes) {
+          n.x += n.dx;
+          n.y += n.dy;
+          n.z += n.dz;
+          if (Math.abs(n.x) > 300) n.dx *= -1;
+          if (Math.abs(n.y) > 210) n.dy *= -1;
+          if (Math.abs(n.z) > 250) n.dz *= -1;
+        }
+
+        const projected = nodes.map((n) => ({ ...project(n.x, n.y, n.z), n }));
+
+        // Vẽ các liên kết
+        for (let i = 0; i < nodes.length; i++) {
+          for (let j = i + 1; j < nodes.length; j++) {
+            const a = nodes[i],
+              b = nodes[j];
+            const dx = a.x - b.x,
+              dy = a.y - b.y,
+              dz = a.z - b.z;
+            const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (dist < CONN_DIST) {
+              const opacity = (1 - dist / CONN_DIST) * 0.7;
+              const pa = projected[i],
+                pb = projected[j];
+              const avgScale = (pa.scale + pb.scale) / 2;
+              ctx.beginPath();
+              ctx.moveTo(pa.px, pa.py);
+              ctx.lineTo(pb.px, pb.py);
+              ctx.strokeStyle = `rgba(0,220,210,${opacity * avgScale * 2})`;
+              ctx.lineWidth = opacity * 2;
+              ctx.stroke();
+            }
+          }
+        }
+
+        // Vẽ các hạt
+        for (const p of projected) {
+          const r = Math.max(1, 2.2 * p.scale);
+          const grd = ctx.createRadialGradient(
+            p.px,
+            p.py,
+            0,
+            p.px,
+            p.py,
+            r * 2.5,
+          );
+          grd.addColorStop(0, `rgba(180,255,252,${0.95 * p.scale})`);
+          grd.addColorStop(0.4, `rgba(0,220,210,${0.7 * p.scale})`);
+          grd.addColorStop(1, `rgba(0,180,170,0)`);
+          ctx.beginPath();
+          ctx.arc(p.px, p.py, r * 2.5, 0, Math.PI * 2);
+          ctx.fillStyle = grd;
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(p.px, p.py, r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(220,255,253,${p.scale})`;
+          ctx.fill();
+        }
+
+        requestAnimationFrame(loop);
+      }
+
+      loop();
+
+      window.addEventListener("resize", () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      });
+    </script>
+  </body>
+</html>
